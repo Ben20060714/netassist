@@ -1,0 +1,32 @@
+# Environnement Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Outils de test et couverture
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Analyse statique
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Résultats de netassist — potentiellement sensibles
+scans/
+
+# Éditeurs et système
+.idea/
+.vscode/
+*.swp
+.DS_Store

@@ -4,34 +4,34 @@ import ipaddress
 import re
 
 
-class ScopeError(ValueError):
+class ErreurPerimetre(ValueError):
     """Raised when a target is unsafe or malformed."""
 
 
 _HOSTNAME = re.compile(r"^(?=.{1,253}$)([A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)$")
 
 
-def validate_target(value: str) -> str:
+def valider_cible(valeur: str) -> str:
     """Accept an IP, CIDR, or hostname, but never an option-like value."""
-    target = value.strip()
-    if not target or target.startswith("-") or any(char.isspace() for char in target):
-        raise ScopeError("Cible invalide : utilisez une IP, un CIDR ou un nom DNS.")
+    cible = valeur.strip()
+    if not cible or cible.startswith("-") or any(caractere.isspace() for caractere in cible):
+        raise ErreurPerimetre("Cible invalide : utilisez une IP, un CIDR ou un nom DNS.")
     try:
-        ipaddress.ip_network(target, strict=False)
-        return target
+        ipaddress.ip_network(cible, strict=False)
+        return cible
     except ValueError:
         pass
-    if _HOSTNAME.fullmatch(target) and ".." not in target:
-        return target
-    raise ScopeError("Cible invalide : utilisez une IP, un CIDR ou un nom DNS.")
+    if _HOSTNAME.fullmatch(cible) and ".." not in cible:
+        return cible
+    raise ErreurPerimetre("Cible invalide : utilisez une IP, un CIDR ou un nom DNS.")
 
 
-def authorization_text(target: str, command: list[str]) -> str:
-    rendered = " ".join(command)
+def texte_autorisation(cible: str, commande: list[str]) -> str:
+    commande_affichee = " ".join(commande)
     return (
-        f"Cible : {target}\n"
+        f"Cible : {cible}\n"
         "Vous devez disposer d'une autorisation écrite et d'un périmètre défini.\n"
-        f"Commande exacte qui sera exécutée :\n  {rendered}\n"
+        f"Commande exacte qui sera exécutée :\n  {commande_affichee}\n"
         "Effet : interrogation réseau du périmètre indiqué et enregistrement des résultats.\n"
         "Confirmez en tapant exactement : I CONFIRM"
     )

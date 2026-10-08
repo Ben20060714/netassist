@@ -8,16 +8,16 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from .commands import PROFILES, PortScopeError, build_command, normalize_port_scope
-from .runner import NmapRunner
-from .security import ScopeError, authorization_text, validate_target
+from .commands import PROFILS, ErreurPerimetrePorts, construire_commande, normaliser_perimetre_ports
+from .runner import LanceurNmap
+from .security import ErreurPerimetre, texte_autorisation, valider_cible
 
 
 class NetassistApp:
-    def __init__(self, output_root: Path | None = None) -> None:
+    def __init__(self, racine_sortie: Path | None = None) -> None:
         self.console = Console()
-        self.output_root = output_root or Path("scans")
-        self.runner = NmapRunner(self.output_root, self.console.print)
+        self.racine_sortie = racine_sortie or Path("scans")
+        self.lanceur = LanceurNmap(self.racine_sortie, self.console.print)
 
     def run(self) -> None:
         self.console.print(Panel.fit("[bold cyan]netassist[/bold cyan]\n[dim]Nmap autorisé, rapports lisibles, mode interactif[/dim]"))
@@ -25,55 +25,55 @@ class NetassistApp:
         self.console.print("[dim]Commandes : profiles, scan, help, exit[/dim]")
         while True:
             try:
-                command = Prompt.ask("[bold green]netassist>[/bold green]").strip()
+                commande_interface = Prompt.ask("[bold green]netassist>[/bold green]").strip()
             except (EOFError, KeyboardInterrupt):
                 self.console.print("\nAu revoir.")
                 return
-            if command in {"exit", "quit", "q"}:
+            if commande_interface in {"exit", "quit", "q"}:
                 self.console.print("Au revoir.")
                 return
-            if command == "profiles":
+            if commande_interface == "profiles":
                 self.show_profiles()
-            elif command == "scan":
+            elif commande_interface == "scan":
                 self.scan_flow()
-            elif command in {"help", "?", ""}:
+            elif commande_interface in {"help", "?", ""}:
                 self.console.print("[cyan]profiles[/cyan] liste les profils | [cyan]scan[/cyan] lance un scan autorisé | [cyan]exit[/cyan] quitte")
             else:
                 self.console.print("Commande inconnue. Tapez [cyan]help[/cyan].")
 
     def show_profiles(self) -> None:
-        table = Table(title="Profils disponibles")
-        table.add_column("Nom", style="cyan")
-        table.add_column("Description")
-        for profile in PROFILES.values():
-            table.add_row(profile.name, profile.description)
-        self.console.print(table)
+        tableau = Table(title="Profils disponibles")
+        tableau.add_column("Nom", style="cyan")
+        tableau.add_column("Description")
+        for profil in PROFILS.values():
+            tableau.add_row(profil.nom, profil.description)
+        self.console.print(tableau)
 
     def scan_flow(self) -> None:
         try:
-            target = validate_target(Prompt.ask("Cible IP/CIDR/nom DNS"))
-            profile_name = Prompt.ask("Profil", choices=list(PROFILES), default="discovery")
-            profile = PROFILES[profile_name]
-            port_scope: str | None = None
-            if profile_name != "discovery":
-                selected = Prompt.ask("Ports", choices=["top100", "top1000", "all", "custom"], default="top100")
-                if selected == "custom":
-                    port_scope = normalize_port_scope(Prompt.ask("Liste/ranges de ports"))
+            cible = valider_cible(Prompt.ask("Cible IP/CIDR/nom DNS"))
+            nom_profil = Prompt.ask("Profil", choices=list(PROFILS), default="discovery")
+            profil = PROFILS[nom_profil]
+            perimetre_ports: str | None = None
+            if nom_profil != "discovery":
+                choix = Prompt.ask("Ports", choices=["top100", "top1000", "all", "custom"], default="top100")
+                if choix == "custom":
+                    perimetre_ports = normaliser_perimetre_ports(Prompt.ask("Liste/ranges de ports"))
                 else:
-                    port_scope = selected
-            command = build_command(profile, target, "scans/<dossier>/scan", port_scope)
-            self.console.print(Panel(authorization_text(target, command), title="Confirmation obligatoire", border_style="yellow"))
+                    perimetre_ports = choix
+            commande = construire_commande(profil, cible, "scans/<dossier>/scan", perimetre_ports)
+            self.console.print(Panel(texte_autorisation(cible, commande), title="Confirmation obligatoire", border_style="yellow"))
             if Prompt.ask("Autorisation", default="NON") != "I CONFIRM":
                 self.console.print("Scan annulé : confirmation exacte non fournie.")
                 return
-            self.console.print(f"Commande : [dim]{shlex.join(command)}[/dim]")
-            ids_path_text = Prompt.ask("Export IDS/IPS JSON/JSONL/CSV (optionnel)", default="")
-            ids_path = Path(ids_path_text).expanduser() if ids_path_text else None
-            if ids_path is not None and not ids_path.is_file():
+            self.console.print(f"Commande : [dim]{shlex.join(commande)}[/dim]")
+            texte_chemin_ids = Prompt.ask("Export IDS/IPS JSON/JSONL/CSV (optionnel)", default="")
+            chemin_ids = Path(texte_chemin_ids).expanduser() if texte_chemin_ids else None
+            if chemin_ids is not None and not chemin_ids.is_file():
                 raise RuntimeError("Le fichier d’alertes IDS/IPS indiqué est introuvable.")
-            directory = self.runner.run(target, profile, ids_path, port_scope)
-            self.console.print(Panel(f"Rapports créés dans [bold]{directory}[/bold]", title="Terminé", border_style="green"))
-        except (ScopeError, PortScopeError, RuntimeError, FileExistsError, OSError) as exc:
+            dossier = self.lanceur.lancer(cible, profil, chemin_ids, perimetre_ports)
+            self.console.print(Panel(f"Rapports créés dans [bold]{dossier}[/bold]", title="Terminé", border_style="green"))
+        except (ErreurPerimetre, ErreurPerimetrePorts, RuntimeError, FileExistsError, OSError) as exc:
             self.console.print(f"[red]Erreur : {exc}[/red]")
 
 

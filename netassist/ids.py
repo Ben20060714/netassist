@@ -6,47 +6,47 @@ from ipaddress import ip_address, ip_network
 from pathlib import Path
 from typing import Any
 
-from .models import IDSAlert, ScanReport
+from .models import AlerteIDS, RapportScan
 
 
-def _alert_from_mapping(item: dict[str, Any]) -> IDSAlert:
+def _creer_alerte_depuis_donnees(donnees: dict[str, Any]) -> AlerteIDS:
     """Normalize common Suricata/Snort-style exported alert fields."""
-    nested = item.get("alert") if isinstance(item.get("alert"), dict) else {}
-    return IDSAlert(
-        timestamp=str(item.get("timestamp", item.get("time", "unknown"))),
-        signature=str(nested.get("signature", item.get("signature", item.get("msg", "unknown")))),
-        severity=str(nested.get("severity", item.get("severity", "unknown"))),
-        category=str(nested.get("category", item.get("category", "unknown"))),
-        source_ip=str(item.get("src_ip", item.get("source_ip", ""))),
-        destination_ip=str(item.get("dest_ip", item.get("destination_ip", ""))),
-        destination_port=str(item.get("dest_port", item.get("destination_port", ""))),
-        action=str(nested.get("action", item.get("action", ""))),
+    alerte = donnees.get("alert") if isinstance(donnees.get("alert"), dict) else {}
+    return AlerteIDS(
+        horodatage=str(donnees.get("timestamp", donnees.get("time", "inconnu"))),
+        signature=str(alerte.get("signature", donnees.get("signature", donnees.get("msg", "inconnue")))),
+        severite=str(alerte.get("severity", donnees.get("severity", "inconnue"))),
+        categorie=str(alerte.get("category", donnees.get("category", "inconnue"))),
+        adresse_source=str(donnees.get("src_ip", donnees.get("source_ip", ""))),
+        adresse_destination=str(donnees.get("dest_ip", donnees.get("destination_ip", ""))),
+        port_destination=str(donnees.get("dest_port", donnees.get("destination_port", ""))),
+        action=str(alerte.get("action", donnees.get("action", ""))),
     )
 
 
-def load_alerts(path: Path) -> list[IDSAlert]:
+def charger_alertes(chemin: Path) -> list[AlerteIDS]:
     """Read a JSON array, JSONL file, or CSV export without contacting an IDS."""
-    if path.suffix.lower() == ".csv":
-        with path.open(newline="", encoding="utf-8") as handle:
-            return [_alert_from_mapping(row) for row in csv.DictReader(handle)]
-    raw = path.read_text(encoding="utf-8")
-    if path.suffix.lower() in {".jsonl", ".ndjson"}:
-        items = [json.loads(line) for line in raw.splitlines() if line.strip()]
+    if chemin.suffix.lower() == ".csv":
+        with chemin.open(newline="", encoding="utf-8") as fichier:
+            return [_creer_alerte_depuis_donnees(ligne) for ligne in csv.DictReader(fichier)]
+    contenu = chemin.read_text(encoding="utf-8")
+    if chemin.suffix.lower() in {".jsonl", ".ndjson"}:
+        elements = [json.loads(ligne) for ligne in contenu.splitlines() if ligne.strip()]
     else:
-        data = json.loads(raw)
-        items = data if isinstance(data, list) else data.get("events", [data])
-    return [_alert_from_mapping(item) for item in items if isinstance(item, dict)]
+        donnees = json.loads(contenu)
+        elements = donnees if isinstance(donnees, list) else donnees.get("events", [donnees])
+    return [_creer_alerte_depuis_donnees(element) for element in elements if isinstance(element, dict)]
 
 
-def _target_match(alert: IDSAlert, target: str) -> bool:
-    values = {alert.source_ip, alert.destination_ip}
+def _alerte_concerne_cible(alerte: AlerteIDS, cible: str) -> bool:
+    valeurs = {alerte.adresse_source, alerte.adresse_destination}
     try:
-        scope = ip_network(target, strict=False)
-        return any(ip_address(value) in scope for value in values if value)
+        perimetre = ip_network(cible, strict=False)
+        return any(ip_address(valeur) in perimetre for valeur in valeurs if valeur)
     except ValueError:
-        return target in values
+        return cible in valeurs
 
 
-def correlate_alerts(alerts: list[IDSAlert], report: ScanReport) -> list[IDSAlert]:
+def correler_alertes(alertes: list[AlerteIDS], rapport: RapportScan) -> list[AlerteIDS]:
     """Keep alerts involving the authorized target; no evasive action is taken."""
-    return [alert for alert in alerts if _target_match(alert, report.target)]
+    return [alerte for alerte in alertes if _alerte_concerne_cible(alerte, rapport.cible)]

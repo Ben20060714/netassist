@@ -5,43 +5,43 @@ from datetime import datetime
 
 
 @dataclass(slots=True)
-class Host:
-    address: str
-    state: str = "unknown"
-    hostnames: list[str] = field(default_factory=list)
+class Hote:
+    adresse: str
+    etat: str = "inconnu"
+    noms_hotes: list[str] = field(default_factory=list)
     ports: list[dict[str, str]] = field(default_factory=list)
     cves: list[str] = field(default_factory=list)
     scripts: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
-class IDSAlert:
-    timestamp: str
+class AlerteIDS:
+    horodatage: str
     signature: str
-    severity: str = "unknown"
-    category: str = "unknown"
-    source_ip: str = ""
-    destination_ip: str = ""
-    destination_port: str = ""
+    severite: str = "inconnue"
+    categorie: str = "inconnue"
+    adresse_source: str = ""
+    adresse_destination: str = ""
+    port_destination: str = ""
     action: str = ""
 
 
 @dataclass(slots=True)
-class ScanReport:
-    target: str
-    profile: str
-    started_at: datetime
-    duration_seconds: float | None
-    hosts: list[Host]
-    nmap_args: str = ""
+class RapportScan:
+    cible: str
+    profil: str
+    debut: datetime
+    duree_secondes: float | None
+    hotes: list[Hote]
+    arguments_nmap: str = ""
     source_xml: str = ""
-    ids_alerts: list[IDSAlert] = field(default_factory=list)
-    ids_source: str = ""
+    alertes_ids: list[AlerteIDS] = field(default_factory=list)
+    source_ids: str = ""
 
     @property
     def cves(self) -> list[str]:
-        return sorted({cve for host in self.hosts for cve in host.cves})
+        return sorted({cve for hote in self.hotes for cve in hote.cves})
 
     @property
-    def up_hosts(self) -> list[Host]:
-        return [host for host in self.hosts if host.state == "up"]
+    def hotes_actifs(self) -> list[Hote]:
+        return [hote for hote in self.hotes if hote.etat == "up"]
