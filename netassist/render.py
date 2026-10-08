@@ -40,6 +40,23 @@ def render_markdown(report: ScanReport) -> str:
     lines.extend(f"- `{cve}` — à vérifier dans une source de vulnérabilités à jour." for cve in report.cves)
     if not report.cves:
         lines.append("Aucune CVE signalée dans les résultats fournis.")
+    lines.extend(["", "## Alertes IDS/IPS corrélées", ""])
+    if report.ids_source:
+        lines.append(f"Source fournie : `{report.ids_source}`")
+    if report.ids_alerts:
+        lines.extend([
+            "",
+            "| Date | Sévérité | Signature | Source | Destination | Action |",
+            "|---|---|---|---|---|---|",
+        ])
+        for alert in report.ids_alerts:
+            destination = alert.destination_ip + (f":{alert.destination_port}" if alert.destination_port else "")
+            lines.append(
+                f"| {alert.timestamp} | {alert.severity} | {alert.signature} | "
+                f"{alert.source_ip or '—'} | {destination or '—'} | {alert.action or '—'} |"
+            )
+    else:
+        lines.append("Aucune alerte corrélée. Si aucun export IDS/IPS n’a été fourni, cela ne signifie pas qu’aucune alerte n’a existé.")
     lines.extend(["", "## Commande source", "", f"`{report.nmap_args or 'non disponible'}`", ""])
     return "\n".join(lines)
 

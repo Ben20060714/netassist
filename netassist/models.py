@@ -15,6 +15,18 @@ class Host:
 
 
 @dataclass(slots=True)
+class IDSAlert:
+    timestamp: str
+    signature: str
+    severity: str = "unknown"
+    category: str = "unknown"
+    source_ip: str = ""
+    destination_ip: str = ""
+    destination_port: str = ""
+    action: str = ""
+
+
+@dataclass(slots=True)
 class ScanReport:
     target: str
     profile: str
@@ -23,6 +35,8 @@ class ScanReport:
     hosts: list[Host]
     nmap_args: str = ""
     source_xml: str = ""
+    ids_alerts: list[IDSAlert] = field(default_factory=list)
+    ids_source: str = ""
 
     @property
     def cves(self) -> list[str]:

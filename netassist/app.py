@@ -8,7 +8,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 
-from .commands import PROFILES, ScanProfile, build_command
+from .commands import PROFILES, PortScopeError, build_command, normalize_port_scope
 from .runner import NmapRunner
 from .security import ScopeError, authorization_text, validate_target
 
@@ -54,15 +54,26 @@ class NetassistApp:
             target = validate_target(Prompt.ask("Cible IP/CIDR/nom DNS"))
             profile_name = Prompt.ask("Profil", choices=list(PROFILES), default="discovery")
             profile = PROFILES[profile_name]
-            command = build_command(profile, target, "scans/<dossier>/scan")
+            port_scope: str | None = None
+            if profile_name != "discovery":
+                selected = Prompt.ask("Ports", choices=["top100", "top1000", "all", "custom"], default="top100")
+                if selected == "custom":
+                    port_scope = normalize_port_scope(Prompt.ask("Liste/ranges de ports"))
+                else:
+                    port_scope = selected
+            command = build_command(profile, target, "scans/<dossier>/scan", port_scope)
             self.console.print(Panel(authorization_text(target, command), title="Confirmation obligatoire", border_style="yellow"))
             if Prompt.ask("Autorisation", default="NON") != "I CONFIRM":
                 self.console.print("Scan annulé : confirmation exacte non fournie.")
                 return
             self.console.print(f"Commande : [dim]{shlex.join(command)}[/dim]")
-            directory = self.runner.run(target, profile)
+            ids_path_text = Prompt.ask("Export IDS/IPS JSON/JSONL/CSV (optionnel)", default="")
+            ids_path = Path(ids_path_text).expanduser() if ids_path_text else None
+            if ids_path is not None and not ids_path.is_file():
+                raise RuntimeError("Le fichier d’alertes IDS/IPS indiqué est introuvable.")
+            directory = self.runner.run(target, profile, ids_path, port_scope)
             self.console.print(Panel(f"Rapports créés dans [bold]{directory}[/bold]", title="Terminé", border_style="green"))
-        except (ScopeError, RuntimeError, FileExistsError, OSError) as exc:
+        except (ScopeError, PortScopeError, RuntimeError, FileExistsError, OSError) as exc:
             self.console.print(f"[red]Erreur : {exc}[/red]")
 
 
